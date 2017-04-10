@@ -1,6 +1,8 @@
-
 """
-for each otu: create a stats of Ecosystem occurrences
+Ecosystem distribution for a set of 16S rRNA profiles with OTUs called against GreenGenes 13.5.
+Usage: python ecoDist.py <biom-file>
+
+for each otu: create a stats of Ecosystem occurrences based on data in the SQL database
 
 """
 nomysql = False
@@ -126,6 +128,10 @@ class OTU:
     
 if __name__ == "__main__":
     t0 = time.time()
+    if len(sys.argv) < 2:
+        print __doc__
+        sys.exit()
+            
     categories = {'Biofilm': ["biofilm", "microbial mat", "biofilm material", "microbial mat material"],
                   'Anthropogenic': ['waste water', 'contamination feature', 'bioreactor', 'biofilter', 'anthropogenic environmental material',
                                     'anthropogenic habitat', 'anthropogenic abiotic mesoscopic feature', 'anthropogenic feature'],
@@ -144,10 +150,14 @@ if __name__ == "__main__":
     colors = {'Plant': 'DarkGreen', 'Geothermal': 'SaddleBrown', 'Soil': 'Gold', 'Biofilm': 'SlateGray', 'Animal': 'DarkViolet', 'Freshwater': 'b', 'Marine': 'Cyan', 'Anthropogenic': 'DarkOrange', 'Air': 'AliceBlue', 'Hypersaline':'r'}
     ecosystems = categories.keys()
 
-    conn = MySQLdb.connect(db="GlobalMicroBiome", host="cis1-db", user="ahenschel", passwd=passwd)
-    curs = conn.cursor(DictCursor)
+    try:
+        conn = MySQLdb.connect(db="GlobalMicroBiome", host="localhost", user="biom", passwd="biom") ## Configure this
+        curs = conn.cursor(DictCursor)
+    except:
+        print "Database connection error, please configure the credentials to your local copy of the SQL database containing 16S rRNA profiles"
+        sys.exit()
 
-    # Load ontology (see EnvO tools), OttoTextMining
+    # Load ontology (see EnvO tools)
     ontoDir = "OntologyData"
     envo = Ontology("%s/envoTerms3.pcl" % ontoDir, "%s/envo3.pcl" % ontoDir, "envo")
     
@@ -155,7 +165,7 @@ if __name__ == "__main__":
     t0a = time.time()
     print "CheckPoint 1: %8.3f sec"%(t0a-t0)
 
-    biom = "/data/EarthMicrobiomeProject/BetaDiversity/All_against_all_update_r2000.biom" ## Note, this is a smaller table!
+    biom = sys.argv[1] "/data/EarthMicrobiomeProject/BetaDiversity/All_against_all_update_r2000.biom" ## Note, this is a smaller table!
 
     datadir = "/home/zain/Projects/KnowYourEnv/Data/"
     resultdir = "/home/zain/Projects/KnowYourEnv/Results/EcoPhylPlots"
