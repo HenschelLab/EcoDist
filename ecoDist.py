@@ -1,8 +1,13 @@
 """
 Ecosystem distribution for a set of 16S rRNA profiles with OTUs called against GreenGenes 13.5.
-Usage: python ecoDist.py <biom-file>
+Usage: python ecoDist.py <biom-file> <output directory>
+
+The script requires a fair share of configuration, see inside the python code!
 
 for each otu: create a stats of Ecosystem occurrences based on data in the SQL database
+
+Author: Andreas Henschel
+Licence: GPL v3.0
 
 """
 nomysql = False
@@ -127,9 +132,9 @@ class OTU:
         return cmp(self.lineage, o.lineage)
     
 if __name__ == "__main__":
-    t0 = time.time()
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print __doc__
+        print "(not enough arguments)"
         sys.exit()
             
     categories = {'Biofilm': ["biofilm", "microbial mat", "biofilm material", "microbial mat material"],
@@ -151,29 +156,27 @@ if __name__ == "__main__":
     ecosystems = categories.keys()
 
     try:
-        conn = MySQLdb.connect(db="GlobalMicroBiome", host="localhost", user="biom", passwd="biom") ## Configure this
+        conn = MySQLdb.connect(db="ServerMicroBiome", host="localhost", user="selector1", passwd="selector123") ## Configure this
         curs = conn.cursor(DictCursor)
     except:
         print "Database connection error, please configure the credentials to your local copy of the SQL database containing 16S rRNA profiles"
         sys.exit()
 
     # Load ontology (see EnvO tools)
-    ontoDir = "OntologyData"
+    ontoDir = "data"
     envo = Ontology("%s/envoTerms3.pcl" % ontoDir, "%s/envo3.pcl" % ontoDir, "envo")
     
     # Load Biom table
-    t0a = time.time()
-    print "CheckPoint 1: %8.3f sec"%(t0a-t0)
-
     biom = sys.argv[1] "/data/EarthMicrobiomeProject/BetaDiversity/All_against_all_update_r2000.biom" ## Note, this is a smaller table!
 
-    datadir = "/home/zain/Projects/KnowYourEnv/Data/"
-    resultdir = "/home/zain/Projects/KnowYourEnv/Results/EcoPhylPlots"
-    #pdb.set_trace()
+    datadir = ontoDir 
+    resultdir = sys.argv[2]
+    if not os.path.exists(resultdir):
+        print "Trying to create result dir"
+        os.mkdir(resultdir)
+        
     otuTable = parse_biom_table(open(biom, 'U')) 
     #totalOTUdistribution = otuTable.sum(axis="sample") # should not change for rarefied OTU tables  # very slow, btw!
-    t1 = time.time()
-    print "CheckPoint 2: %8.3f sec"%(t1-t0a)
     ## for each sample: find membership to ontology classes, including parent ontology classes (includes all ancestral classes)
     ## seems to be slow - precalc envo2Samples, ecosystem2samples
     ## Preparing dictionaries: envo2Sample       {<envoID>: [sample1, sample2 ...], ...}
@@ -188,8 +191,6 @@ if __name__ == "__main__":
         for en, samples in envo2Sample.items():
             envo2Sample[en] = list(set(samples))
         sampleIDs = np.array(sampleIDs) ## allows for fancy indexing
-        t1a = time.time()
-        print "CheckPoint 2a: %8.3f sec"%(t1a-t1)
 
         ecosystems2samples = mapEcosystems2samples()
         dump.dump(envo2Sample, "%s/envo2samples.pcl"%datadir)
@@ -199,8 +200,7 @@ if __name__ == "__main__":
         ecosystems2samples = dump.load("%s/ecosystems2samples.pcl"%datadir)
         pass
     cols4plot = [colors[ecosystem] for ecosystem in ecosystems] + ['b']
-    t2 = time.time()
-    print "CheckPoint 3: %8.3f sec"%(t2-t1)
+
 
     if not precalc:
         usedOTUs = {}
