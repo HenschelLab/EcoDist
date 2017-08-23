@@ -29,49 +29,71 @@ import matplotlib.pyplot as plt
 from htmlcols import htmlcols
 import dump
 import time, pdb
+from DBsettings import db
 
-def ecodistributionPlot(otudata, width, colors, names, phyla, phylaNames, entropy, filename):
+def ecodistributionPlot(otudata, width, colors, hatches, names, phyla, phylaNames, entropy, filename):
+    from matplotlib.patches import ConnectionPatch
     """colors is an array = len(otudata[0])"""
     otudataN = np.array([row/float(row.sum()) for row in otudata]) ## normalizing row-wise
-
+    sampleEvidence = [row.sum() for row in otudata]
+    
     ind = np.hstack(([0], width.cumsum()[:-1]))  #np.arange(len(otudataN))
     left, wid = 0.1, 0.8
-    fig = plt.figure(facecolor='white')
-    figlegend = plt.figure()
-    ax1 = fig.add_axes([left, 0.78, wid, 0.15])
-    ax2 = fig.add_axes([left, 0.25, wid, 0.5])
-    ax3 = fig.add_axes([left, 0.08, wid, 0.15])
+    fig = plt.figure(facecolor='white', figsize=(20,20))
+    #figlegend = plt.figure(figsize=(12,20))
+    ax0 = fig.add_axes([left, 0.89, wid, 0.10]) # sampleEvidence
+    ax1 = fig.add_axes([left, 0.78, wid, 0.10], sharex=ax0) # entropy
+    ax2 = fig.add_axes([left, 0.38, wid, 0.40], sharex=ax0)  # ecosystem distribution 
+    ax3 = fig.add_axes([left, 0.33, wid, 0.04], sharex=ax0) # phylo distribution
+    ax4 = fig.add_axes([left, 0.25, wid, 0.04]) # phylo distribution legend
+    #ax5 = fig.add_axes([left, 0.0, wid, 0.04]) # phylo distribution legend
     
     bottom = np.zeros(len(otudataN))
-    legendbars = []
-    ax1.bar(range(len(entropy)), entropy, linewidth=0)
+    #legendbars = []
+    ax0.bar(ind, sampleEvidence, width, color='k', log=True, linewidth=1, fill=False)
+    ax0.set_xticks([])
+    ax1.bar(ind, entropy, width, linewidth=1, edgecolor='k', fill=False)
     ax1.set_xticks([])
     for idx, habitat in enumerate(otudataN.T):
         color = colors[idx]
-        b = ax2.bar(ind, habitat, width, linewidth=0, color=color, bottom=bottom)        
+        hatch = hatches[idx]
+        b = ax2.bar(ind, habitat, width, linewidth=0.1, color=color, bottom=bottom, hatch=hatch)
         #legendbars.append(b[0])
         bottom += habitat
     ax2.set_xticks([])
-    #ax2.legend(legendbars, names)
+    #figlegend.legend(legendbars, names)
+    ax2.set_ylim(0, 1)
     ind = np.hstack(([0], phyla.cumsum()[:-1]))
-    legendbarsPhyla = []
+    #legendbarsPhyla = []
     for idx, (start, width) in enumerate(zip(ind, phyla)):
-        col = phylaColorDict[phylaNames[idx]] 
-        rect = ax3.bar(start, 1, width, color=col, linewidth=0)        
-        legendbarsPhyla.append(rect[0])
-    #ax3.legend(legendbarsPhyla, phylaNames)
+        col = phylaColorDict[phylaNames[idx]]
+        rect = ax3.bar(start, 1, width, color=col, linewidth=0)
+        ax4.bar(idx+0.1, 1, 0.8, color=col, linewidth=0)
+        #legendbarsPhyla.append(rect[0])
+        con = ConnectionPatch(xyA=(start+width/2.,0), xyB=(idx+0.5, 1), axesA=ax3, axesB=ax4, arrowstyle="->", coordsA="data", coordsB="data", shrinkB=1)
+        ax3.add_artist(con)    #ax3.legend(legendbarsPhyla, phylaNames)
     ax3.set_xticks([])
-    figlegend.legend(legendbarsPhyla, phylaNames, 'center')
+    ax3.set_yticks([])
+    for spine in ['right', 'top', 'left', 'bottom']:
+        ax3.spines[spine].set_color('none')
+        ax4.spines[spine].set_color('none')
+
+    ax4.set_xticks(np.arange(len(phyla)) + 0.5)
+    ax4.set_xticklabels(phylaNames, rotation=-90) # [p.split(";")[-1] for p in phylaNames]
+    ax4.set_yticks([])    
+    #figlegend.legend(legendbarsPhyla, [p.split(";")[-1] for p in phylaNames], 'center')
     fig.savefig("%s.svg"%filename)
     fig.savefig("%s.png"%filename)
-    figlegend.savefig("%s_leg.svg"%filename)
-    figlegend.savefig("%s_leg.png"%filename)
+    #fig.savefig("%s.pdf"%filename)
+    #figlegend.savefig("%s_leg.svg"%filename)
+    #figlegend.savefig("%s_leg.png"%filename)
+    #figlegend.savefig("%s_leg.pdf"%filename)
     fig.clf()
-    figlegend.clf()
+    #figlegend.clf()
     plt.close(fig)
-    plt.close(figlegend)
-                           
-    
+    #plt.close(figlegend)
+                               
+                               
 def lookupOntologyClass(sampleID): ## TODO, also implement more abstract levels
     query = "SELECT OntologyID FROM samples_EnvO_annotation_unified WHERE sample_event_ID='%s' AND ontology='envo'"%(sampleID)
     curs.execute(query)
@@ -153,10 +175,11 @@ if __name__ == "__main__":
                   }
 
     colors = {'Plant': 'DarkGreen', 'Geothermal': 'SaddleBrown', 'Soil': 'Gold', 'Biofilm': 'SlateGray', 'Animal': 'DarkViolet', 'Freshwater': 'b', 'Marine': 'Cyan', 'Anthropogenic': 'DarkOrange', 'Air': 'AliceBlue', 'Hypersaline':'r'}
+    ecosystemColors = colors
     ecosystems = categories.keys()
 
     try:
-        conn = MySQLdb.connect(db="ServerMicroBiome", host="localhost", user="selector1", passwd="selector123") ## Configure this
+        conn = MySQLdb.connect(db=db["db"], host=db["host"], user=db["user"], passwd=db["passwd"])
         curs = conn.cursor(DictCursor)
     except:
         print "Database connection error, please configure the credentials to your local copy of the SQL database containing 16S rRNA profiles"
@@ -167,7 +190,7 @@ if __name__ == "__main__":
     envo = Ontology("%s/envoTerms3.pcl" % ontoDir, "%s/envo3.pcl" % ontoDir, "envo")
     
     # Load Biom table
-    biom = sys.argv[1] "/data/EarthMicrobiomeProject/BetaDiversity/All_against_all_update_r2000.biom" ## Note, this is a smaller table!
+    biom = sys.argv[1] #"/data/EarthMicrobiomeProject/BetaDiversity/All_against_all_update_r2000.biom" ## Note, this is a smaller table!
 
     datadir = ontoDir 
     resultdir = sys.argv[2]
@@ -178,14 +201,14 @@ if __name__ == "__main__":
     otuTable = parse_biom_table(open(biom, 'U')) 
     #totalOTUdistribution = otuTable.sum(axis="sample") # should not change for rarefied OTU tables  # very slow, btw!
     ## for each sample: find membership to ontology classes, including parent ontology classes (includes all ancestral classes)
-    ## seems to be slow - precalc envo2Samples, ecosystem2samples
+    ## seems to be slow - therefore precalc envo2Samples, ecosystems2samples
     ## Preparing dictionaries: envo2Sample       {<envoID>: [sample1, sample2 ...], ...}
     ##                         ecosystems2Samples {'marine': [sample1, sample2 ...], ...}
     precalc = True
     if not precalc:
         sampleIDs = otuTable.SampleIds
         envo2Sample = defaultdict(list)
-        for sampleIDidx, (sd, sampleID, m) in enumerate(otuTable.iterSamples()):
+        for sampleIDidx, (sd, sampleID, m) in enumerate(otuTable.iter(axis='sample')):
             for envoID in lookupOntologyClass(sampleID):
                 addEnvoSampleAssociation(envoID, sampleIDidx) ## can lead to redundancies! Therefore see below 2 lines
         for en, samples in envo2Sample.items():
@@ -196,15 +219,15 @@ if __name__ == "__main__":
         dump.dump(envo2Sample, "%s/envo2samples.pcl"%datadir)
         dump.dump(ecosystems2samples, "%s/ecosystems2samples.pcl"%datadir)
     else:
-        envo2samples = dump.load("%s/envo2samples.pcl"%datadir)
+        envo2samples = dump.load("%s/envo2samples.pcl"%datadir) ## I dont think I need that
         ecosystems2samples = dump.load("%s/ecosystems2samples.pcl"%datadir)
-        pass
-    cols4plot = [colors[ecosystem] for ecosystem in ecosystems] + ['b']
+        
+    cols4plot = [colors[ecosystem] for ecosystem in ecosystems] + ['b'] 
 
 
     if not precalc:
         usedOTUs = {}
-        for otuDistribution, otuID, meta in otuTable.iterObservations():
+        for otuDistribution, otuID, meta in otuTable.iter(axis='observation'):
             #if otuID not in sabkhaOTUs: continue 
             if otuDistribution.sum() < 100 and len(np.where(otuDistribution>0)[0]) < 100: continue ## change this!
             otu = OTU(otuID) ## needs cis1-db ## also get nr or Sequences        
@@ -217,24 +240,30 @@ if __name__ == "__main__":
         usedOTUs = dump.load("%s/usedOTUs.pcl"%datadir)
 
     ## generate color dict for used phyla once, so to be consistent in subsequent plots
-    t3 = time.time()
-    print "CheckPoint 4: %8.3f sec"%(t3-t2)
+    #t3 = time.time()
+    #print "CheckPoint 4: %8.3f sec"%(t3-t2)
     usedPhyla = set([otu.phylum for otu in usedOTUs.values()])
-    phylaColorDict = dict([(phylum, htmlcols[np.random.randint(len(htmlcols))]) for phylum in usedPhyla])    
-
-    for sampleData, sampleName, m in otuTable.iterSamples():
+    phylaColorDict = dict([(phylum, htmlcols[np.random.randint(len(htmlcols))]) for phylum in usedPhyla])
+    hatchpatterns = [ "/" , "\\" , "|" , "-" , "+" , "x", "o", "O", ".", "*" ]*4 ## for composite ecosystems
+    ecosystemsIndex1 = dict([(eco,idx) for idx,eco in enumerate(ecosystemColors.keys())])
+    eco2hatch = lambda ecosystem: "".join([hatchpatterns[ecosystemsIndex1[eco]] for eco in ecosystem.split("|")[1:]])
+    hatch4plot = map(eco2hatch, ecosystems)
+    
+    obsIDs = otuTable.ids(axis='observation')
+    for sampleData, sampleName, m in otuTable.iter(axis='sample'):
         #if os.path.exists("%s/%s.png" % (resultdir, sampleName)): continue
         try:
-            selectedOTUs = [usedOTUs[otuTable.ObservationIds[idx]] for idx in np.where(sampleData>0)[0] if usedOTUs.has_key(otuTable.ObservationIds[idx])]
+            selectedOTUs = [usedOTUs[obsIDs[idx]] for idx in np.where(sampleData>0)[0] if usedOTUs.has_key(obsIDs[idx])]
             selectedOTUs.sort()
             otudata = [otu.ecoDistribution for otu in selectedOTUs]
             widths = np.ones(len(otudata)) * 1 ## possibly stretch by occ.        
             phyla0 = [otu.phylum for otu in selectedOTUs]
             phylaNames, phylaCount = zip(*[(i,len(list(l))) for i,l in groupby(phyla0)])
             entropies =  [otu.entropy for otu in selectedOTUs]
-            ecodistributionPlot(otudata, widths, cols4plot, ecosystems + ['Misc'], np.array(phylaCount), phylaNames, entropies, "%s/%s" % (resultdir, sampleName))
-        except:
+            ecodistributionPlot(otudata, widths, cols4plot, hatch4plot, ecosystems + ['Misc'], np.array(phylaCount), phylaNames, entropies, "%s/%s" % (resultdir, sampleName))
+        except Exception, e:
             print "Error in", sampleName
+            print e
         
     conn.close()
     #if not precalc:
