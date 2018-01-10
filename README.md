@@ -14,5 +14,8 @@ SQL MicroBiome database as published in [Henschel et. al, PLoS Computational Bio
 
 Some parts also need nltk (possibly that can be avoided)
 
-The central script here is ecoDist.py. 
+The central script here is ecoDist.py.
+It contains a
+It uses precalculated ecosystem distribution information per OTU from data/usedOTUs.pcl
 
+ecoDistSQL*.py deal with SQL info, incl. dumping

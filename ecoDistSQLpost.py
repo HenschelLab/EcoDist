@@ -27,6 +27,7 @@ from htmlcols import htmlcols
 import dump
 import pdb
 import time
+from DBsettings import db
 
 def ecodistributionPlot(otudata, width, colors, names, phyla, phylaNames, entropy, filename):
     from matplotlib.patches import ConnectionPatch
@@ -136,9 +137,3 @@ if __name__ == "__main__":
         phylaNames, phylaCount = zip(*[(k, sum([e.count for e in g])) for k, g in groupby(selectedOTUs, lambda o:o.phylum)])
         entropies =  [otu.entropy for otu in selectedOTUs]
         ecodistributionPlot(otudata, widths, cols4plot, ecosystems + ['Misc'], np.array(phylaCount), phylaNames, entropies, "%s/%s" % (resultdir, sampleName))
-
-"""
- [#"/home/handreas/Data/SequencesMITDec2013/FLASH_merged/SplittedLibraries_Corrected/Areej/otu_table_Day0andE2Soil.biom",
-                 "/home/handreas/Data/SequencesMITDec2013/FLASH_merged/SplittedLibraries_Corrected/Areej/otutable_crabgut.biom",
-                 "/home/handreas/SHAIMA/Final/otu_table.biom",
-        "/data/EarthMicrobiomeProject/BetaDiversity/All_against_all_update_r2000.biom"][2:]"""

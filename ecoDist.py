@@ -147,6 +147,7 @@ class OTU:
         self.lineage = ";".join([clean(p) for p in lineage.split(";")])
         self.phylum = ";".join(self.lineage.split(";")[:3])
     def addEcoDistribution(self,ecodist):
+        """ecodist here comes precalculated, in the SQL version it is derived from the database"""
         self.ecoDistribution = np.array(ecodist)
     def calculateEntropy(self, totalEcoDistribution):
         from scipy.stats.distributions import entropy
@@ -193,13 +194,11 @@ if __name__ == "__main__":
 
 
     # Load ontology (see EnvO tools)
-    ontoDir = "data"
-    envo = Ontology("%s/envoTerms3.pcl" % ontoDir, "%s/envo3.pcl" % ontoDir, "envo")
-    
-    # Load Biom table
-    biom = sys.argv[1] #"/data/EarthMicrobiomeProject/BetaDiversity/All_against_all_update_r2000.biom" ## Note, this is a smaller table!
+    datadir = "data"
+    envo = Ontology("%s/envoTerms3.pcl" % datadir, "%s/envo3.pcl" % datadir, "envo")
 
-    datadir = ontoDir 
+    # Load Biom table
+    biom = sys.argv[1] #"data/All_against_all_update_r2000.biom" ## Note, this is a smaller table!
     resultdir = sys.argv[2]
     if not os.path.exists(resultdir):
         print "Trying to create result dir"
@@ -248,6 +247,7 @@ if __name__ == "__main__":
             otu.calculateEntropy(0)
             usedOTUs[otuID] = otu
     else:
+        ## all the OTU based SQL queries compiled into one big pcl file
         usedOTUs = dump.load("%s/usedOTUs.pcl"%datadir)
 
     ## generate color dict for used phyla once, so to be consistent in subsequent plots
