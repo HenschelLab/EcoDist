@@ -2,7 +2,11 @@
 Ecosystem distribution for a set of 16S rRNA profiles with OTUs called against GreenGenes 13.5.
 Usage: python ecoDist.py <biom-file> <output directory>
 
+The provided biom file should contain a matrix of microbial community sample ids (as samples) and GreenGene 13.5 OTU identifiers as observations. 
+A gzipped sample biom file is provided in the data directory.
+ 
 The script requires a fair share of configuration, see inside the python code!
+For database access configuration, modify DBsettings.py
 
 for each otu: create a stats of Ecosystem occurrences based on data in the SQL database
 
@@ -92,8 +96,7 @@ def ecodistributionPlot(otudata, width, colors, hatches, names, phyla, phylaName
     #figlegend.clf()
     plt.close(fig)
     #plt.close(figlegend)
-                               
-                               
+
 def lookupOntologyClass(sampleID): ## TODO, also implement more abstract levels
     query = "SELECT OntologyID FROM samples_EnvO_annotation_unified WHERE sample_event_ID='%s' AND ontology='envo'"%(sampleID)
     curs.execute(query)
@@ -154,10 +157,20 @@ class OTU:
         return cmp(self.lineage, o.lineage)
     
 if __name__ == "__main__":
+    ## Check if most data can be accessed
     if len(sys.argv) < 3:
         print __doc__
         print "(not enough arguments)"
         sys.exit()
+    for k,v in db.items():
+        if not v: print "Warning DB setting %s not set, check DBsettings.py" % k
+    try:
+        conn = MySQLdb.connect(db=db["db"], host=db["host"], user=db["user"], passwd=db["passwd"])
+        curs = conn.cursor(DictCursor)
+    except:
+        print "Database connection error, please configure the credentials to your local copy of the SQL database containing 16S rRNA profiles. See DBsettings.py"
+        sys.exit()
+        
             
     categories = {'Biofilm': ["biofilm", "microbial mat", "biofilm material", "microbial mat material"],
                   'Anthropogenic': ['waste water', 'contamination feature', 'bioreactor', 'biofilter', 'anthropogenic environmental material',
@@ -178,12 +191,6 @@ if __name__ == "__main__":
     ecosystemColors = colors
     ecosystems = categories.keys()
 
-    try:
-        conn = MySQLdb.connect(db=db["db"], host=db["host"], user=db["user"], passwd=db["passwd"])
-        curs = conn.cursor(DictCursor)
-    except:
-        print "Database connection error, please configure the credentials to your local copy of the SQL database containing 16S rRNA profiles"
-        sys.exit()
 
     # Load ontology (see EnvO tools)
     ontoDir = "data"
@@ -196,8 +203,12 @@ if __name__ == "__main__":
     resultdir = sys.argv[2]
     if not os.path.exists(resultdir):
         print "Trying to create result dir"
-        os.mkdir(resultdir)
-        
+        try:
+            os.mkdir(resultdir)
+        except:
+            print "Failed to create result dir"
+            print "Check your write permissions for the specified location"
+            
     otuTable = parse_biom_table(open(biom, 'U')) 
     #totalOTUdistribution = otuTable.sum(axis="sample") # should not change for rarefied OTU tables  # very slow, btw!
     ## for each sample: find membership to ontology classes, including parent ontology classes (includes all ancestral classes)
@@ -219,7 +230,7 @@ if __name__ == "__main__":
         dump.dump(envo2Sample, "%s/envo2samples.pcl"%datadir)
         dump.dump(ecosystems2samples, "%s/ecosystems2samples.pcl"%datadir)
     else:
-        envo2samples = dump.load("%s/envo2samples.pcl"%datadir) ## I dont think I need that
+        #envo2samples = dump.load("%s/envo2samples.pcl"%datadir) ## I dont think I need that
         ecosystems2samples = dump.load("%s/ecosystems2samples.pcl"%datadir)
         
     cols4plot = [colors[ecosystem] for ecosystem in ecosystems] + ['b'] 
